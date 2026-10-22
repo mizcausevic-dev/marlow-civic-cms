@@ -1,0 +1,77 @@
+name: Publish ferry-article.html
+
+on:
+  push:
+    paths:
+      - .github/workflows/publish-ferry-article.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Expand compressed chunks and publish
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import hashlib
+          from pathlib import Path
+
+          def expand(s):
+              out = []
+              i = 0
+              while i < len(s):
+                  if s.startswith("\u27e6N\u27e7", i):
+                      out.append("\n"); i += 3; continue
+                  if s.startswith("\u27e6Q\u27e7", i):
+                      out.append('"'); i += 3; continue
+                  if s.startswith("\u27e6B\u27e7", i):
+                      out.append("\\"); i += 3; continue
+                  if s.startswith("\u27e6", i):
+                      j = s.find("|", i)
+                      k = s.find("\u27e7", j)
+                      c = int(s[i+1:j])
+                      tok = s[j+1:k]
+                      out.append(tok * c)
+                      i = k + 1
+                  else:
+                      out.append(s[i]); i += 1
+              return "".join(out)
+
+          blob = "".join(Path(f"payload/staging/cmp-ferry-{n}").read_text() for n in range(4))
+          text = expand(blob)
+          digest = hashlib.sha256(text.encode()).hexdigest()
+          expect = "762c418067e29beba1897fdde7829eb5210bb00157403b0d31a970db227e9b5a"
+          if digest != expect:
+              raise SystemExit(f"hash {digest} len {len(text.encode())}")
+          Path("preview").mkdir(exist_ok=True)
+          Path("preview/ferry-article.html").write_text(text)
+          Path("/tmp/ferry-article.html").write_text(text)
+          print("ok", digest)
+          PY
+          git config user.name "Miz Causevic"
+          git config user.email "causevic.miz@gmail.com"
+          git add preview/ferry-article.html
+          if git diff --cached --quiet; then
+            echo "preview/ferry-article.html already correct"
+          else
+            git commit -m "Add preview/ferry-article.html"
+            git push origin HEAD:main
+          fi
+          git fetch origin livepages
+          git checkout -B livepages origin/livepages
+          cp /tmp/ferry-article.html ferry-article.html
+          git add ferry-article.html
+          if git diff --cached --quiet; then
+            echo "livepages ferry-article.html already correct"
+          else
+            git commit -m "Add ferry-article.html"
+            git push origin HEAD:livepages
+          fi
