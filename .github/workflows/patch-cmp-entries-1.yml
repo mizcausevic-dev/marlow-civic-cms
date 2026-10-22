@@ -1,0 +1,48 @@
+name: Patch cms-entries compressed chunk 1
+
+on:
+  push:
+    paths:
+      - .github/workflows/patch-cmp-entries-1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Drop the extra repeated token
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import hashlib
+          from pathlib import Path
+          path = Path("payload/staging/cmp-entries-1")
+          data = path.read_bytes()
+          old = b"1Kn+Zh8EvafsDq04yhFzipVL4FdXlb9eZ2Dr0ZXzP5nf/bwh+L/AO1"
+          new = b"1"
+          count = data.count(old)
+          if count != 1:
+              raise SystemExit(f"marker count {count}")
+          data = data.replace(old, new, 1)
+          digest = hashlib.sha256(data).hexdigest()
+          expect = "941a6bc0d4cc30d772fc6653b9e329250f128d273b6f89a39b74854bf5d1ab37"
+          if digest != expect:
+              raise SystemExit(f"hash {digest} len {len(data)}")
+          path.write_bytes(data)
+          print("ok", digest, len(data))
+          PY
+          git config user.name "Miz Causevic"
+          git config user.email "causevic.miz@gmail.com"
+          git add payload/staging/cmp-entries-1
+          if git diff --cached --quiet; then
+            echo "already correct"
+            exit 0
+          fi
+          git commit -m "Correct cms-entries compressed chunk 1"
+          git push origin HEAD:main
