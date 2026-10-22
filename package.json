@@ -1,0 +1,31 @@
+{
+  "name": "marlow-civic-cms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Schema-driven newsroom CMS with immutable revisions, a constrained block editor, and a separate public frontend.",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "cms": "tsx src/cms/main.ts",
+    "web": "tsx src/web/main.ts",
+    "worker": "tsx src/worker/main.ts",
+    "worker:once": "tsx src/worker/once.ts",
+    "migrate": "tsx src/db/migrate.ts",
+    "seed": "tsx src/db/seed.ts",
+    "test": "SCRYPT_N=4096 tsx --test --test-concurrency=1 test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "export:pages": "tsx scripts/export-pages.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "hono": "^4.9.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
