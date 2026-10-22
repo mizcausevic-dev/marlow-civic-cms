@@ -1,0 +1,51 @@
+name: Patch block-editor compressed chunk 7
+
+on:
+  push:
+    paths:
+      - .github/workflows/patch-cmp-editor-7.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Restore the missing pieces
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import hashlib
+          from pathlib import Path
+          path = Path("payload/staging/cmp-editor-7")
+          data = path.read_text()
+          expect = "ac6a3987ae93b56c8087e87e8b928113ef7c8f1edcfd56f7b6aa2b01a8220f49"
+          if hashlib.sha256(data.encode()).hexdigest() == expect:
+              print("already correct")
+          else:
+              anchor = "snBLusDnBvgl3WMEu6wMAb4Jd1jBLusDEg6MEu6y"
+              if data[1724:1764] != anchor:
+                  raise SystemExit("anchor mismatch")
+              data = data[:1744] + "CTbBLusnBLusDnBvgl3WMEu6wM" + data[1744:]
+              tail = "3gMUe94FWQLKWuKPeGKPeKoCylrij3hij3vAqiRZS0xR73gMUe8VQFlLXFHvDFHvFUBZS1xR73gMUe8VZAspa4o94Yo94qgLKWuKPeGKPe8CqJFlLTFHvDFHvFUBZS1xR7wxR73gVQFlLXFHveAxR7xVkCylrij3hij3iqAspa4o97wGKPe8CrIFlLXFHvDFHvFUBZS1xR7wxR73gVRIspaYo94Yo94qgLKWuKPeGKPeKoCylrij3vAYo94qyBZS1xR7wxR7xVAWUtc"
+              data = data[:7729] + tail
+              digest = hashlib.sha256(data.encode()).hexdigest()
+              if digest != expect:
+                  raise SystemExit(f"hash {digest} len {len(data)}")
+              path.write_text(data)
+              print("ok", digest, len(data))
+          PY
+          git config user.name "Miz Causevic"
+          git config user.email "causevic.miz@gmail.com"
+          git add payload/staging/cmp-editor-7
+          if git diff --cached --quiet; then
+            echo "already correct"
+            exit 0
+          fi
+          git commit -m "Correct block-editor compressed chunk 7"
+          git push origin HEAD:main
