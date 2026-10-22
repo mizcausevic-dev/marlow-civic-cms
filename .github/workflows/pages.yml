@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -22,32 +22,80 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - id: unpack
+
+      - name: Unpack the source payload
+        id: unpack
         if: hashFiles('payload/part-*') != ''
         run: |
-          cat payload/part-* | base64 -d | tar xz
+          tmp=$(mktemp)
+          if ! (for f in $(ls payload/part-* | sort); do tail -n +2 "$f"; done | tr -d '\n' | base64 -d > "$tmp"); then
+            echo "payload is incomplete; decode failed"
+            exit 0
+          fi
+          if ! tar tzf "$tmp" >/dev/null 2>&1; then
+            echo "payload is incomplete; archive check failed"
+            exit 0
+          fi
+          tar xzf "$tmp"
           rm -rf payload
           echo "did=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the livepages branch from preview/
+        if: hashFiles('preview/index.html') != ''
+        run: |
+          rm -rf /tmp/livepages
+          mkdir -p /tmp/livepages
+          cp -a preview/. /tmp/livepages/
+          git -C /tmp/livepages init
+          git -C /tmp/livepages checkout -b livepages
+          git -C /tmp/livepages add .
+          git -C /tmp/livepages -c user.name="Miz Causevic" -c user.email="causevic.miz@gmail.com" commit -m "Publish screenshot previews"
+          git -C /tmp/livepages push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:livepages
+
+      - name: Enable GitHub Pages when a user token is available
+        env:
+          USER_TOKEN: ${{ secrets.CRSR_CLOUD }}
+        run: |
+          if [ -z "$USER_TOKEN" ]; then
+            echo "CRSR_CLOUD is not set on this repository. Pages stays on whatever source is already configured."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/pages-enable.json -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $USER_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pages \
+            -d '{"build_type":"workflow"}')
+          echo "enable_status=$code"
+          if [ "$code" = "409" ] || [ "$code" = "201" ] || [ "$code" = "200" ]; then
+            exit 0
+          fi
+          curl -sS -o /tmp/pages-put.json -w "put_status=%{http_code}\n" \
+            -X PUT \
+            -H "Authorization: Bearer $USER_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pages \
+            -d '{"build_type":"workflow"}'
+
       - uses: actions/upload-pages-artifact@v3
-        if: steps.unpack.outputs.did == 'yes' || hashFiles('preview/index.html') != ''
+        if: hashFiles('preview/index.html') != ''
         with:
           path: preview
+
       - id: deployment
-        if: steps.unpack.outputs.did == 'yes' || hashFiles('preview/index.html') != ''
+        if: hashFiles('preview/index.html') != ''
         uses: actions/deploy-pages@v4
-      - if: steps.unpack.outputs.did == 'yes'
+        continue-on-error: true
+
+      - name: Commit the unpacked source onto main
+        if: steps.unpack.outputs.did == 'yes'
         run: |
           git config user.name "Miz Causevic"
           git config user.email "causevic.miz@gmail.com"
           git add -A
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
           git commit -m "Unpack the CMS source and screenshot gallery"
           git push origin HEAD:main
-          rm -rf /tmp/livepages
-          mkdir -p /tmp/livepages
-          cp preview/index.html /tmp/livepages/index.html
-          cp preview/.nojekyll /tmp/livepages/.nojekyll
-          git -C /tmp/livepages init
-          git -C /tmp/livepages checkout -b livepages
-          git -C /tmp/livepages add .
-          git -C /tmp/livepages -c user.name="Miz Causevic" -c user.email="causevic.miz@gmail.com" commit -m "Add screenshot previews for GitHub Pages"
-          git -C /tmp/livepages push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" livepages
