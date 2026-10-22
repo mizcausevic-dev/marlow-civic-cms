@@ -37,22 +37,25 @@ jobs:
             exit 0
           fi
           tar xzf "$tmp"
+          git checkout -- .github/workflows/pages.yml
           rm -rf payload
+          rm -f .github/workflows/assemble-*.yml .github/workflows/patch-*.yml .github/workflows/publish-*.yml
           echo "did=yes" >> "$GITHUB_OUTPUT"
 
       - name: Publish the livepages branch from preview/
         if: hashFiles('preview/index.html') != ''
+        continue-on-error: true
         run: |
           rm -rf /tmp/livepages
           mkdir -p /tmp/livepages
           cp -a preview/. /tmp/livepages/
-          git -C /tmp/livepages init
-          git -C /tmp/livepages checkout -b livepages
+          git -C /tmp/livepages init -b livepages
           git -C /tmp/livepages add .
           git -C /tmp/livepages -c user.name="Miz Causevic" -c user.email="causevic.miz@gmail.com" commit -m "Publish screenshot previews"
           git -C /tmp/livepages push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:livepages
 
       - name: Enable GitHub Pages when a user token is available
+        if: always()
         env:
           USER_TOKEN: ${{ secrets.CRSR_CLOUD }}
         run: |
@@ -84,11 +87,11 @@ jobs:
 
       - id: deployment
         if: hashFiles('preview/index.html') != ''
-        uses: actions/deploy-pages@v4
         continue-on-error: true
+        uses: actions/deploy-pages@v4
 
       - name: Commit the unpacked source onto main
-        if: steps.unpack.outputs.did == 'yes'
+        if: always() && steps.unpack.outputs.did == 'yes'
         run: |
           git config user.name "Miz Causevic"
           git config user.email "causevic.miz@gmail.com"
