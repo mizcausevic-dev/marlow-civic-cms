@@ -1,0 +1,52 @@
+name: Patch block-editor compressed chunk 0
+
+on:
+  push:
+    paths:
+      - .github/workflows/patch-cmp-editor-0.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Drop three extra repeats
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import hashlib
+          from pathlib import Path
+          path = Path("payload/staging/cmp-editor-0")
+          data = path.read_text()
+          pairs = [
+              ("gubsXYotTElxdi7FFqYFzdi7FFqYFzdi7FFqcgursi7FFqYFzdi7FFqYkuLsm7FFqUF", "gubsXYotTElxdi7FFqYF"),
+              ("kuLsm7FFqUFzdi7FFqYFzdi7FFqcgursi7FFqYFzdi7FFqYF", "F"),
+              ("AA9EAgCQQAPRAIAkEACSTySABAAkEAD0QCAJBAAkk8kgAQAJBB", "B"),
+          ]
+          for old, new in pairs:
+              count = data.count(old)
+              if count != 1:
+                  raise SystemExit(f"marker count {count} for {old[:24]}")
+              data = data.replace(old, new, 1)
+          digest = hashlib.sha256(data.encode()).hexdigest()
+          expect = "e3d644c6c3825c1e0b33b2bb9f0975b4f872134137d6fb5e95442d9cdcc6e2c5"
+          if digest != expect:
+              raise SystemExit(f"hash {digest} len {len(data)}")
+          path.write_text(data)
+          print("ok", digest, len(data))
+          PY
+          git config user.name "Miz Causevic"
+          git config user.email "causevic.miz@gmail.com"
+          git add payload/staging/cmp-editor-0
+          if git diff --cached --quiet; then
+            echo "already correct"
+            exit 0
+          fi
+          git commit -m "Correct block-editor compressed chunk 0"
+          git push origin HEAD:main
