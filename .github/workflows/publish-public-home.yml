@@ -1,0 +1,77 @@
+name: Publish public-home.html
+
+on:
+  push:
+    paths:
+      - .github/workflows/publish-public-home.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Expand compressed chunks and publish
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import hashlib
+          from pathlib import Path
+
+          def expand(s):
+              out = []
+              i = 0
+              while i < len(s):
+                  if s.startswith("\u27e6N\u27e7", i):
+                      out.append("\n"); i += 3; continue
+                  if s.startswith("\u27e6Q\u27e7", i):
+                      out.append('"'); i += 3; continue
+                  if s.startswith("\u27e6B\u27e7", i):
+                      out.append("\\"); i += 3; continue
+                  if s.startswith("\u27e6", i):
+                      j = s.find("|", i)
+                      k = s.find("\u27e7", j)
+                      c = int(s[i+1:j])
+                      tok = s[j+1:k]
+                      out.append(tok * c)
+                      i = k + 1
+                  else:
+                      out.append(s[i]); i += 1
+              return "".join(out)
+
+          blob = "".join(Path(f"payload/staging/cmp-home-{n}").read_text() for n in range(6))
+          text = expand(blob)
+          digest = hashlib.sha256(text.encode()).hexdigest()
+          expect = "779d872615d81cdc4882aa2f3e9276e5faf71c7cc3295b5f99be2b8848973274"
+          if digest != expect:
+              raise SystemExit(f"hash {digest} len {len(text.encode())}")
+          Path("preview").mkdir(exist_ok=True)
+          Path("preview/public-home.html").write_text(text)
+          Path("/tmp/public-home.html").write_text(text)
+          print("ok", digest)
+          PY
+          git config user.name "Miz Causevic"
+          git config user.email "causevic.miz@gmail.com"
+          git add preview/public-home.html
+          if git diff --cached --quiet; then
+            echo "preview/public-home.html already correct"
+          else
+            git commit -m "Add preview/public-home.html"
+            git push origin HEAD:main
+          fi
+          git fetch origin livepages
+          git checkout -B livepages origin/livepages
+          cp /tmp/public-home.html public-home.html
+          git add public-home.html
+          if git diff --cached --quiet; then
+            echo "livepages public-home.html already correct"
+          else
+            git commit -m "Add public-home.html"
+            git push origin HEAD:livepages
+          fi
