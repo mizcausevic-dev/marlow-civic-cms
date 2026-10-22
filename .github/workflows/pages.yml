@@ -1,0 +1,53 @@
+name: Publish screenshot previews
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: unpack
+        if: hashFiles('payload/part-*') != ''
+        run: |
+          cat payload/part-* | base64 -d | tar xz
+          rm -rf payload
+          echo "did=yes" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.unpack.outputs.did == 'yes' || hashFiles('preview/index.html') != ''
+        with:
+          path: preview
+      - id: deployment
+        if: steps.unpack.outputs.did == 'yes' || hashFiles('preview/index.html') != ''
+        uses: actions/deploy-pages@v4
+      - if: steps.unpack.outputs.did == 'yes'
+        run: |
+          git config user.name "Miz Causevic"
+          git config user.email "causevic.miz@gmail.com"
+          git add -A
+          git commit -m "Unpack the CMS source and screenshot gallery"
+          git push origin HEAD:main
+          rm -rf /tmp/livepages
+          mkdir -p /tmp/livepages
+          cp preview/index.html /tmp/livepages/index.html
+          cp preview/.nojekyll /tmp/livepages/.nojekyll
+          git -C /tmp/livepages init
+          git -C /tmp/livepages checkout -b livepages
+          git -C /tmp/livepages add .
+          git -C /tmp/livepages -c user.name="Miz Causevic" -c user.email="causevic.miz@gmail.com" commit -m "Add screenshot previews for GitHub Pages"
+          git -C /tmp/livepages push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" livepages
