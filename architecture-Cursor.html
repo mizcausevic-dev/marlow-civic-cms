@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marlow publication flow</title>
+  <style>
+    :root { --bg:#0b0c10; --panel:#1f2833; --ink:#c5c6c7; --cyan:#66fcf1; --teal:#45a29e; --warn:#ffd27a; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 "Segoe UI", sans-serif; }
+    main { width:min(980px, calc(100% - 2rem)); margin:2rem auto 3rem; }
+    h1 { font-size:1.6rem; margin-bottom:0.3rem; }
+    p { color:#9aa3ab; }
+    .flow { display:grid; grid-template-columns:repeat(4, 1fr); gap:0.7rem; margin-top:1.2rem; }
+    .step, .note { background:var(--panel); border:1px solid rgba(102,252,241,.25); border-radius:14px; padding:0.8rem; }
+    .step strong, .note strong { display:block; color:var(--cyan); margin-bottom:0.35rem; }
+    .arrow { text-align:center; color:var(--teal); margin:0.4rem 0; }
+    @media (max-width:800px) { .flow { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>How a Marlow page becomes public</h1>
+    <p>Each box is a persisted state. Approval sticks to a revision id. Publication appends an event. The public site never reads SQLite.</p>
+    <div class="flow">
+      <article class="step"><strong>1. Draft revision</strong>Editor save inserts an immutable revision. The previous approval is not copied.</article>
+      <article class="step"><strong>2. Approval</strong>Publisher approves that revision id. A newer save needs a new approval.</article>
+      <article class="step"><strong>3. Publication event</strong>One transaction writes the publication, moves the public pointer, and queues webhook outbox rows.</article>
+      <article class="step"><strong>4. Public API</strong>The separate frontend requests only published, non-archived entries and renders the allowlisted blocks.</article>
+    </div>
+    <p class="arrow">Scheduled jobs enter at step 3 after a worker claims the stored revision. Archive hides the entry without deleting events. Rollback appends another publication.</p>
+    <div class="flow">
+      <article class="note"><strong>Preview</strong>Short-lived token hash bound to one revision. Response is private and no-store.</article>
+      <article class="note"><strong>Worker</strong>Lease plus a unique job id. A restart can finish the job once.</article>
+      <article class="note"><strong>Webhooks</strong>Signed raw body from the outbox. Unsafe addresses are rejected. Retries are visible.</article>
+      <article class="note"><strong>Cache</strong>No shared cache. Public and preview responses both forbid storage.</article>
+    </div>
+  </main>
+</body>
+</html>

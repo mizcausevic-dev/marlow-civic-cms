@@ -1,0 +1,36 @@
+:root {
+  --paper: #f4f1ea;
+  --ink: #1b1915;
+  --muted: #5e584f;
+  --rule: #d9d1c3;
+  --teal: #0f6e6a;
+  --accent: #8c2f2f;
+  --font: "Iowan Old Style", Palatino, Georgia, serif;
+  --sans: "Avenir Next", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font); }
+a { color: var(--teal); }
+.skip { position: absolute; left: 1rem; top: -4rem; background: var(--ink); color: var(--paper); padding: 0.4rem 0.7rem; }
+.skip:focus { top: 1rem; }
+.wrap { width: min(760px, calc(100% - 2rem)); margin: 0 auto; }
+header.mast { border-bottom: 1px solid var(--rule); padding: 1.2rem 0 0.8rem; }
+.mast .wrap { display: flex; justify-content: space-between; gap: 1rem; align-items: end; }
+.brand { font-family: var(--sans); letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.78rem; }
+.brand a { color: var(--ink); text-decoration: none; }
+nav a { margin-left: 0.8rem; font-family: var(--sans); font-size: 0.92rem; }
+h1 { font-size: clamp(2.2rem, 6vw, 4rem); line-height: 0.95; margin: 0.2rem 0; }
+.dek, .kicker { font-family: var(--sans); }
+.kicker { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.75rem; color: var(--accent); }
+.block { margin: 1.4rem 0; }
+.prose p, .pull p { font-size: 1.18rem; line-height: 1.55; }
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.cta, .related, .missing { border: 1px solid var(--rule); padding: 1rem; }
+.button { font-family: var(--sans); background: var(--ink); color: var(--paper); text-decoration: none; padding: 0.45rem 0.75rem; border-radius: 999px; }
+img { max-width: 100%; height: auto; }
+footer { border-top: 1px solid var(--rule); margin-top: 2rem; padding: 1rem 0 2rem; color: var(--muted); font-family: var(--sans); font-size: 0.9rem; }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+@media (max-width: 700px) { .columns { grid-template-columns: 1fr; } .mast .wrap { display: block; } nav a { margin-left: 0; margin-right: 0.8rem; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
