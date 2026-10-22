@@ -1,0 +1,48 @@
+name: Patch block-editor compressed chunk 5
+
+on:
+  push:
+    paths:
+      - .github/workflows/patch-cmp-editor-5.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Restore the missing repeat
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import hashlib
+          from pathlib import Path
+          path = Path("payload/staging/cmp-editor-5")
+          data = path.read_bytes()
+          old = b"z/g1AGWCHHm"
+          new = b"zNQQZYIcef8AAwQ48/4NQUZYIcef8DBDjz/g1BBlghx5/wADBDjz/g1AGWCHHn/AwQ48/wCDUFGWCHHn/AwQ48/4NQQZYIcef8DBDjz/AINQUZYIcef8DBDjz/g1AGWCHHm"
+          count = data.count(old)
+          if count != 1:
+              raise SystemExit(f"marker count {count}")
+          data = data.replace(old, new, 1)
+          digest = hashlib.sha256(data).hexdigest()
+          expect = "d0ec4b9451a5be77d0e2da9d5c26937eeba4dd58037b6a7cc8c19220ea07b0e8"
+          if digest != expect:
+              raise SystemExit(f"hash {digest} len {len(data)}")
+          path.write_bytes(data)
+          print("ok", digest)
+          PY
+          git config user.name "Miz Causevic"
+          git config user.email "causevic.miz@gmail.com"
+          git add payload/staging/cmp-editor-5
+          if git diff --cached --quiet; then
+            echo "already correct"
+            exit 0
+          fi
+          git commit -m "Correct block-editor compressed chunk 5"
+          git push origin HEAD:main
