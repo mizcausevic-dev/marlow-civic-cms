@@ -1,0 +1,48 @@
+name: Patch block-editor compressed chunk 3
+
+on:
+  push:
+    paths:
+      - .github/workflows/patch-cmp-editor-3.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Drop the extra repeat
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import hashlib
+          from pathlib import Path
+          path = Path("payload/staging/cmp-editor-3")
+          data = path.read_bytes()
+          old = b"KyzIfVyXxGZD6uS+JWgWUssyH1cl8RmQ+rkviVoFlLLMh9XJfEZkPq5L4laBZS"
+          new = b"K"
+          count = data.count(old)
+          if count != 1:
+              raise SystemExit(f"marker count {count}")
+          data = data.replace(old, new, 1)
+          digest = hashlib.sha256(data).hexdigest()
+          expect = "3f320f9067da7b7cc3988c14c182c926e3827a68be27b6a280cf85ea60a209cc"
+          if digest != expect:
+              raise SystemExit(f"hash {digest} len {len(data)}")
+          path.write_bytes(data)
+          print("ok", digest)
+          PY
+          git config user.name "Miz Causevic"
+          git config user.email "causevic.miz@gmail.com"
+          git add payload/staging/cmp-editor-3
+          if git diff --cached --quiet; then
+            echo "already correct"
+            exit 0
+          fi
+          git commit -m "Correct block-editor compressed chunk 3"
+          git push origin HEAD:main
